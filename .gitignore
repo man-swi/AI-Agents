@@ -24,10 +24,6 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a script, but you might change
-#  your mind and edit them directly.
 *.manifest
 *.spec
 
@@ -64,10 +60,6 @@ venv.bak/
 *.pydevproject
 .DS_Store # macOS
 
-# Data files (if large or sensitive - consider Git LFS or other storage)
-# *.csv
-# *.xlsx
-# data/
 
 # Secrets (NEVER commit these!)
 secrets.txt
