@@ -5,6 +5,9 @@ from langchain_community.llms import Ollama
 import matplotlib.pyplot as plt
 import io
 
+# --- Streamlit Page Configuration (MUST BE FIRST STREAMLIT COMMAND) ---
+st.set_page_config(layout="wide", page_title="LLM Data Visualization Pipeline") # MOVED HERE
+
 # --- LLM Configuration ---
 @st.cache_resource # Cache the LLM connection
 def get_llm():
@@ -16,11 +19,12 @@ def get_llm():
         llm.invoke("Why is the sky blue?")
         return llm
     except Exception as e:
+        # These st.error/st.info calls are now fine because set_page_config has already run
         st.error(f"Failed to connect to Ollama or initialize LLM: {e}")
         st.info("Please ensure Ollama is installed, running, and the 'mistral' model is pulled (`ollama pull mistral`).")
         return None
 
-llm = get_llm()
+llm = get_llm() # This call is now AFTER st.set_page_config
 
 # --- Agent Explanation ---
 AGENT_EXPLANATION = """
@@ -67,9 +71,7 @@ The magic behind this application is a **LangChain Pandas DataFrame Agent**. Her
 Essentially, the agent acts as an intermediary, translating your natural language questions into executable code, running it, and then presenting the results back to you.
 """
 
-# --- Streamlit App ---
-st.set_page_config(layout="wide", page_title="LLM Data Visualization Pipeline")
-
+# --- Streamlit App (Title and Markdown for the main page) ---
 st.title("📊 LLM-Powered Data Analysis & Visualization")
 st.markdown("Upload your CSV or Excel file, ask questions, and let the LLM generate insights and visualizations!")
 
@@ -83,7 +85,7 @@ with st.sidebar:
         st.markdown(AGENT_EXPLANATION)
     st.markdown("---")
     st.info("Note: Ensure Ollama (with Mistral model) is running locally.")
-    if not llm:
+    if not llm: # This check happens after get_llm() is called
         st.warning("LLM not initialized. Please check Ollama setup.")
 
 
@@ -96,7 +98,7 @@ if uploaded_file is not None and llm is not None:
             df = pd.read_excel(uploaded_file)
         else:
             st.error("Unsupported file type. Please upload a CSV or Excel file.")
-            st.stop()
+            st.stop() # st.stop() is fine here as set_page_config has run
 
         st.subheader("📄 Uploaded Data Preview (First 5 rows):")
         st.dataframe(df.head())
@@ -105,18 +107,15 @@ if uploaded_file is not None and llm is not None:
         # This is important because the agent is created with a specific df
         if 'data_agent' not in st.session_state or 'current_df_name' not in st.session_state or st.session_state.current_df_name != uploaded_file.name:
             with st.spinner("Initializing LLM Agent for your data..."):
-                # allow_dangerous_code should be True to execute Python code.
-                # Handle parsing errors for robustness.
-                # verbose=True helps in debugging by showing agent's thoughts.
                 st.session_state.data_agent = create_pandas_dataframe_agent(
                     llm,
                     df,
-                    agent_type="openai-tools", # More robust agent type, even with Ollama
+                    agent_type="openai-tools", 
                     verbose=True,
-                    allow_dangerous_code=True, # Necessary for code execution
+                    allow_dangerous_code=True, 
                     agent_executor_kwargs={"handle_parsing_errors": True}
                 )
-                st.session_state.current_df_name = uploaded_file.name # Store current df name
+                st.session_state.current_df_name = uploaded_file.name 
             st.success("Agent initialized and ready!")
 
         st.subheader("💬 Ask questions about your data:")
@@ -126,26 +125,18 @@ if uploaded_file is not None and llm is not None:
             if user_question:
                 with st.spinner("🤖 LLM is thinking and generating code..."):
                     try:
-                        # The agent will attempt to execute code that generates plots.
-                        # Matplotlib plots are often captured by st.pyplot() automatically if they are
-                        # the last thing "shown" or generated in the agent's execution context.
-                        plt.clf() # Clear previous plots
+                        plt.clf() 
                         response = st.session_state.data_agent.invoke(user_question)
                         answer = response.get('output', "No textual output from agent.")
 
                         st.subheader("💡 LLM's Answer:")
                         st.markdown(answer)
-
-                        # Attempt to display any plot generated
-                        # The agent's code execution environment might have created a plot.
-                        # st.pyplot() will try to grab the current Matplotlib figure.
-                        fig = plt.gcf() # Get current figure
-                        if any(ax.has_data() for ax in fig.get_axes()): # Check if figure has data
+                        
+                        fig = plt.gcf() 
+                        if any(ax.has_data() for ax in fig.get_axes()): 
                             st.subheader("📊 Generated Visualization:")
                             st.pyplot(fig)
                         else:
-                            # Check if the answer itself contains a hint for a plot
-                            # This is a heuristic
                             if "plot" in answer.lower() or "chart" in answer.lower() or "graph" in answer.lower() or "visualization" in answer.lower():
                                 st.info("The LLM mentioned a plot, but it might not have been generated in a way Streamlit could capture directly. Try phrasing your plot request more explicitly, e.g., 'Create a bar chart of X vs Y'.")
 
@@ -159,6 +150,8 @@ if uploaded_file is not None and llm is not None:
 elif uploaded_file is None and llm is not None:
     st.info("☝️ Upload a CSV or Excel file to get started.")
 elif llm is None:
+    # This st.error is fine; it's for the main page content if LLM failed to initialize earlier
+    # but after set_page_config has already run.
     st.error("LLM is not available. Cannot proceed. Please check Ollama setup in the sidebar.")
 
 st.markdown("---")
